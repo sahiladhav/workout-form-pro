@@ -2,7 +2,10 @@ import { createServerFn } from "@tanstack/react-start";
 import { generateText } from "ai";
 import { z } from "zod";
 
-const InputSchema = z.object({ exercise: z.string().min(1).max(400) });
+const InputSchema = z.object({
+  exercise: z.string().min(1).max(400),
+  clarification: z.string().max(400).optional(),
+});
 
 const ResultSchema = z.object({
   exercise_name: z.string().min(1),
