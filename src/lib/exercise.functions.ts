@@ -2,59 +2,64 @@ import { createServerFn } from "@tanstack/react-start";
 import { generateText } from "ai";
 import { z } from "zod";
 
+const GoalSchema = z.enum(["strength_muscle", "lose_fat", "habit"]);
+const DaysSchema = z.enum(["2", "3", "4"]);
+const LevelSchema = z.enum(["total_beginner", "returning"]);
+
 const InputSchema = z.object({
-  exercise: z.string().min(1).max(400),
-  clarification: z.string().max(400).optional(),
+  goal: GoalSchema,
+  days: DaysSchema,
+  level: LevelSchema,
 });
 
 const ResultSchema = z.object({
-  exercise_name: z.string().min(1),
-  form_cues: z.array(z.string()).min(3).max(5),
-  common_mistakes: z.array(z.string()).min(3).max(5),
-  safety_flag: z.string().nullable(),
-  ask_a_trainer_if: z.array(z.string()).min(2).max(4),
+  plan_title: z.string().min(1),
+  first_four_weeks: z.array(z.string()).min(3).max(6),
+  typical_session: z.array(z.string()).min(3).max(6),
+  avoid_burnout: z.array(z.string()).min(3).max(6),
+  when_to_get_help: z.array(z.string()).min(2).max(5),
 });
 
-const ClarifySchema = z.object({
-  needs_clarification: z.literal(true),
-  clarification_message: z.string().min(1),
-});
+export type StarterPlan = z.infer<typeof ResultSchema>;
+export type PlanInput = z.infer<typeof InputSchema>;
 
-export type ExerciseGuidance = z.infer<typeof ResultSchema>;
-
-export type CheckExerciseResponse =
-  | { result: ExerciseGuidance; clarification: null; error: null }
-  | { result: null; clarification: string; error: null }
-  | { result: null; clarification: null; error: string };
+export type BuildPlanResponse =
+  | { result: StarterPlan; error: null }
+  | { result: null; error: string };
 
 function extractJson(text: string): unknown {
-  const cleaned = text
-    .replace(/```json\s*/gi, "")
-    .replace(/```\s*/g, "")
-    .trim();
+  const cleaned = text.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
   const candidate = cleaned || text;
   const start = candidate.indexOf("{");
   const end = candidate.lastIndexOf("}");
   if (start === -1 || end === -1) throw new Error("No JSON object in model response");
-
   const json = candidate
     .slice(start, end + 1)
     .replace(/,\s*}/g, "}")
     .replace(/,\s*]/g, "]")
     .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "");
-
   return JSON.parse(json);
 }
 
-export const checkExercise = createServerFn({ method: "POST" })
+const GOAL_LABEL: Record<z.infer<typeof GoalSchema>, string> = {
+  strength_muscle: "Build strength/muscle",
+  lose_fat: "Lose fat",
+  habit: "Just build the habit / get moving",
+};
+
+const LEVEL_LABEL: Record<z.infer<typeof LevelSchema>, string> = {
+  total_beginner: "Total beginner (never trained)",
+  returning: "Returning after a long break",
+};
+
+export const buildPlan = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => InputSchema.parse(input))
-  .handler(async ({ data }): Promise<CheckExerciseResponse> => {
+  .handler(async ({ data }): Promise<BuildPlanResponse> => {
     const key = process.env.LOVABLE_API_KEY;
     if (!key) {
       return {
         result: null,
-        clarification: null,
-        error: "AI checking is not available right now. Please try again in a moment.",
+        error: "AI planning isn't available right now. Please try again in a moment.",
       };
     }
 
@@ -65,27 +70,18 @@ export const checkExercise = createServerFn({ method: "POST" })
       const { text } = await generateText({
         model: gateway("google/gemini-3-flash-preview"),
         system:
-          "You are a careful strength & conditioning coach giving beginner-focused guidance. The user may type an exact exercise name OR a plain-English description of a movement or machine. First, identify the most likely exercise. Then reply with a single JSON object and nothing else — no prose, no markdown fences.\n\nIf you can confidently identify the exercise, respond with this shape:\n{\n  \"exercise_name\": string (the canonical exercise name in Title Case, e.g. \"Chest Press Machine\", \"Barbell Deadlift\"),\n  \"form_cues\": array of 3-5 short strings,\n  \"common_mistakes\": array of 3-5 short strings,\n  \"safety_flag\": a single short warning string OR null,\n  \"ask_a_trainer_if\": array of 2-4 short strings\n}\nKeep each bullet under ~15 words. Set safety_flag to null for low-risk movements (e.g. bicep curl, seated calf raise); use a concise warning string when there is real beginner injury risk (heavy spinal loading, overhead barbell work, ballistic lifts, etc.).\n\nIf the description is too vague or ambiguous to identify a specific exercise, instead respond with:\n{\n  \"needs_clarification\": true,\n  \"clarification_message\": a single friendly sentence asking for ONE more specific detail (e.g. which body part it works, whether you sit or stand, push or pull, machine or free-weight).\n}\nUse this clarification path only when truly unclear — if a reasonable best guess exists, return the full guidance instead.",
-        prompt: data.clarification
-          ? `Original user input: ${data.exercise}\nUser's clarification: ${data.clarification}\n\nUse both together to identify the exercise. Do NOT ask for further clarification — make your best reasonable guess and return the full guidance JSON. Return only valid JSON now.`
-          : `User input: ${data.exercise}\n\nReturn only valid JSON now.`,
+          "You are an encouraging, safety-first beginner gym coach. Generate a simple starting plan based on the user's goal, weekly availability, and starting level. Keep the tone warm, plain-English, and beginner-friendly. NEVER give specific calorie numbers, macros, or diet plans; if nutrition comes up at all, just suggest focusing on whole foods and protein and consulting a professional for specifics. Keep guidance general and safety-first.\n\nReply with ONLY a single JSON object, no prose, no markdown fences, with this exact shape:\n{\n  \"plan_title\": short friendly title for the plan (e.g. \"Your 3-day beginner strength starter\"),\n  \"first_four_weeks\": array of 3-6 short strings describing a gentle week-by-week ramp (mention weeks 1-4, easy volume, full-body),\n  \"typical_session\": array of 3-6 short strings listing movement patterns (squat, hinge, push, pull, carry, core) — NOT sets/reps/weights detail,\n  \"avoid_burnout\": array of 3-6 short strings on rest days, starting light, soreness being normal, consistency over intensity,\n  \"when_to_get_help\": array of 2-5 short strings reminding them to start light, listen to their body, see a doctor or trainer if they feel pain or have health conditions\n}\nKeep each bullet under ~20 words.",
+        prompt: `Goal: ${GOAL_LABEL[data.goal]}\nDays per week: ${data.days}\nStarting from: ${LEVEL_LABEL[data.level]}\n\nReturn only valid JSON now.`,
       });
 
       const parsed = extractJson(text);
-      if (!data.clarification) {
-        const clarify = ClarifySchema.safeParse(parsed);
-        if (clarify.success) {
-          return { result: null, clarification: clarify.data.clarification_message, error: null };
-        }
-      }
       const result = ResultSchema.parse(parsed);
-      return { result, clarification: null, error: null };
+      return { result, error: null };
     } catch (error) {
-      console.error("Exercise guidance generation failed", error);
+      console.error("Plan generation failed", error);
       return {
         result: null,
-        clarification: null,
-        error: "Sorry, we couldn't check that exercise right now. Please try again in a moment.",
+        error: "Sorry, we couldn't build your plan right now. Please try again in a moment.",
       };
     }
   });
