@@ -34,8 +34,8 @@ export const Route = createFileRoute("/")({
 function FormSafetyCheck() {
   const check = useServerFn(checkExercise);
   const [exercise, setExercise] = useState("");
-  const [submittedName, setSubmittedName] = useState("");
   const [result, setResult] = useState<ExerciseGuidance | null>(null);
+  const [clarification, setClarification] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,15 +47,19 @@ function FormSafetyCheck() {
     setLoading(true);
     setError(null);
     setResult(null);
-    setSubmittedName(name);
+    setClarification(null);
 
     try {
       const data = await check({ data: { exercise: name } });
-      if (data.error || !data.result) {
-        setError(data.error ?? "Sorry, we couldn't check that exercise right now.");
+      if (data.error) {
+        setError(data.error);
         return;
       }
-      setResult(data.result);
+      if (data.clarification) {
+        setClarification(data.clarification);
+        return;
+      }
+      if (data.result) setResult(data.result);
     } catch (err) {
       console.error(err);
       setError(
@@ -65,6 +69,7 @@ function FormSafetyCheck() {
       setLoading(false);
     }
   };
+
 
   return (
     <div className="min-h-screen bg-background px-4 py-10 sm:py-16">
@@ -86,7 +91,7 @@ function FormSafetyCheck() {
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           <Input
             type="text"
-            placeholder="Enter an exercise (e.g. barbell deadlift)"
+            placeholder="Enter an exercise — or describe it if you're not sure"
             value={exercise}
             onChange={(e) => setExercise(e.target.value)}
             disabled={loading}
@@ -115,12 +120,20 @@ function FormSafetyCheck() {
           </div>
         )}
 
+        {/* Clarification */}
+        {clarification && !loading && (
+          <div className="mt-6 rounded-xl border border-warning/30 bg-warning/40 p-4 text-sm text-warning-foreground">
+            {clarification}
+          </div>
+        )}
+
         {/* Result Card */}
         {result && !loading && (
           <div className="mt-8 rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8">
             <h2 className="mb-8 text-xl font-bold capitalize text-card-foreground">
-              {submittedName}
+              {result.exercise_name}
             </h2>
+
 
             {/* Form cues */}
             <div className="mb-8">
