@@ -3,92 +3,84 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import {
   Dumbbell,
+  CalendarDays,
+  Activity,
+  Heart,
   AlertTriangle,
-  CheckCircle2,
-  XCircle,
-  HelpCircle,
   Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { checkExercise, type ExerciseGuidance } from "@/lib/exercise.functions";
+import { buildPlan, type StarterPlan, type PlanInput } from "@/lib/exercise.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Form & Safety Check" },
+      { title: "Beginner Gym Starting Plan" },
       {
         name: "description",
-        content: "Get beginner form tips and safety guidance for any exercise.",
+        content:
+          "Answer 3 quick questions and get a simple, encouraging beginner gym plan.",
       },
-      { property: "og:title", content: "Form & Safety Check" },
+      { property: "og:title", content: "Beginner Gym Starting Plan" },
       {
         property: "og:description",
-        content: "Get beginner form tips and safety guidance for any exercise.",
+        content:
+          "Answer 3 quick questions and get a simple, encouraging beginner gym plan.",
       },
     ],
   }),
-  component: FormSafetyCheck,
+  component: StartingPlan,
 });
 
-function FormSafetyCheck() {
-  const check = useServerFn(checkExercise);
-  const [exercise, setExercise] = useState("");
-  const [result, setResult] = useState<ExerciseGuidance | null>(null);
-  const [clarification, setClarification] = useState<string | null>(null);
-  const [clarificationAnswer, setClarificationAnswer] = useState("");
-  const [originalExercise, setOriginalExercise] = useState("");
+type Goal = PlanInput["goal"];
+type Days = PlanInput["days"];
+type Level = PlanInput["level"];
+
+const GOAL_OPTIONS: { value: Goal; label: string }[] = [
+  { value: "strength_muscle", label: "Build strength / muscle" },
+  { value: "lose_fat", label: "Lose fat" },
+  { value: "habit", label: "Just build the habit / get moving" },
+];
+
+const DAY_OPTIONS: { value: Days; label: string }[] = [
+  { value: "2", label: "2 days" },
+  { value: "3", label: "3 days" },
+  { value: "4", label: "4 days" },
+];
+
+const LEVEL_OPTIONS: { value: Level; label: string }[] = [
+  { value: "total_beginner", label: "Total beginner (never trained)" },
+  { value: "returning", label: "Returning after a long break" },
+];
+
+function StartingPlan() {
+  const build = useServerFn(buildPlan);
+  const [goal, setGoal] = useState<Goal | null>(null);
+  const [days, setDays] = useState<Days | null>(null);
+  const [level, setLevel] = useState<Level | null>(null);
+  const [plan, setPlan] = useState<StarterPlan | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const runCheck = async (exerciseInput: string, clarificationInput?: string) => {
+  const ready = goal && days && level;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!ready || loading) return;
     setLoading(true);
     setError(null);
-    setResult(null);
-    if (!clarificationInput) setClarification(null);
-
+    setPlan(null);
     try {
-      const data = await check({
-        data: { exercise: exerciseInput, clarification: clarificationInput },
-      });
-      if (data.error) {
-        setError(data.error);
-        return;
-      }
-      if (data.clarification) {
-        setClarification(data.clarification);
-        setClarificationAnswer("");
-        return;
-      }
-      if (data.result) {
-        setResult(data.result);
-        setClarification(null);
-      }
+      const data = await build({ data: { goal, days, level } });
+      if (data.error) setError(data.error);
+      else if (data.result) setPlan(data.result);
     } catch (err) {
       console.error(err);
-      setError(
-        "Sorry, we couldn't check that exercise right now. Please try again in a moment.",
-      );
+      setError("Sorry, we couldn't build your plan right now. Please try again in a moment.");
     } finally {
       setLoading(false);
     }
   };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const name = exercise.trim();
-    if (!name || loading) return;
-    setOriginalExercise(name);
-    await runCheck(name);
-  };
-
-  const handleClarificationSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const answer = clarificationAnswer.trim();
-    if (!answer || loading || !originalExercise) return;
-    await runCheck(originalExercise, answer);
-  };
-
 
   return (
     <div className="min-h-screen bg-background px-4 py-10 sm:py-16">
@@ -99,35 +91,50 @@ function FormSafetyCheck() {
             <Dumbbell className="h-7 w-7 text-primary" />
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-            Form & Safety Check
+            Beginner Gym Starting Plan
           </h1>
           <p className="mt-3 text-base text-muted-foreground">
-            Type an exercise to get beginner form tips and safety guidance.
+            Three quick questions and we'll build you a simple, encouraging plan.
           </p>
         </div>
 
-        {/* Input + Button */}
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-          <Input
-            type="text"
-            placeholder="Enter an exercise — or describe it if you're not sure"
-            value={exercise}
-            onChange={(e) => setExercise(e.target.value)}
+        {/* Questions */}
+        <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+          <Question
+            label="What's your main goal?"
+            options={GOAL_OPTIONS}
+            value={goal}
+            onChange={setGoal}
             disabled={loading}
-            className="h-14 rounded-xl border-input bg-card px-4 text-base shadow-sm transition-colors focus-visible:ring-primary"
           />
+          <Question
+            label="How many days a week can you realistically train?"
+            options={DAY_OPTIONS}
+            value={days}
+            onChange={setDays}
+            disabled={loading}
+            inline
+          />
+          <Question
+            label="Where are you starting from?"
+            options={LEVEL_OPTIONS}
+            value={level}
+            onChange={setLevel}
+            disabled={loading}
+          />
+
           <Button
             type="submit"
-            disabled={loading || !exercise.trim()}
+            disabled={loading || !ready}
             className="h-14 rounded-xl bg-primary text-base font-semibold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 active:scale-[0.98]"
           >
             {loading ? (
               <>
                 <Loader2 className="h-5 w-5 animate-spin" />
-                Checking...
+                Building your plan...
               </>
             ) : (
-              "Check it"
+              "Build my plan"
             )}
           </Button>
         </form>
@@ -139,114 +146,135 @@ function FormSafetyCheck() {
           </div>
         )}
 
-        {/* Clarification */}
-        {clarification && !loading && !result && (
-          <div className="mt-6 rounded-2xl border border-warning/30 bg-warning/40 p-5">
-            <p className="text-sm text-warning-foreground">{clarification}</p>
-            <form
-              onSubmit={handleClarificationSubmit}
-              className="mt-4 flex flex-col gap-2 sm:flex-row"
-            >
-              <Input
-                type="text"
-                placeholder="Add one more detail…"
-                value={clarificationAnswer}
-                onChange={(e) => setClarificationAnswer(e.target.value)}
-                autoFocus
-                className="h-12 flex-1 rounded-xl border-input bg-card px-4 text-base shadow-sm focus-visible:ring-primary"
-              />
-              <Button
-                type="submit"
-                disabled={!clarificationAnswer.trim()}
-                className="h-12 rounded-xl bg-primary px-6 text-base font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 active:scale-[0.98]"
-              >
-                Continue
-              </Button>
-            </form>
-          </div>
-        )}
-
-        {/* Result Card */}
-        {result && !loading && (
+        {/* Plan */}
+        {plan && !loading && (
           <div className="mt-8 rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8">
-            <h2 className="mb-8 text-xl font-bold capitalize text-card-foreground">
-              {result.exercise_name}
+            <h2 className="mb-8 text-xl font-bold text-card-foreground">
+              {plan.plan_title}
             </h2>
 
+            <Section
+              icon={<CalendarDays className="h-5 w-5 text-primary" />}
+              title="Your first 4 weeks"
+              items={plan.first_four_weeks}
+              dotClass="bg-primary/60"
+            />
 
-            {/* Form cues */}
-            <div className="mb-8">
-              <div className="mb-3 flex items-center gap-2.5">
-                <CheckCircle2 className="h-5 w-5 text-primary" />
-                <h3 className="font-semibold text-foreground">Form cues</h3>
-              </div>
-              <ul className="space-y-2.5 pl-7">
-                {result.form_cues.map((cue, i) => (
-                  <li
-                    key={i}
-                    className="relative text-sm leading-relaxed text-muted-foreground before:absolute before:left-[-1.125rem] before:top-[0.4rem] before:h-1.5 before:w-1.5 before:rounded-full before:bg-primary/60"
-                  >
-                    {cue}
-                  </li>
-                ))}
-              </ul>
-            </div>
+            <Section
+              icon={<Activity className="h-5 w-5 text-primary" />}
+              title="A typical session"
+              items={plan.typical_session}
+              dotClass="bg-primary/60"
+            />
 
-            {/* Common mistakes */}
-            <div className="mb-8">
-              <div className="mb-3 flex items-center gap-2.5">
-                <XCircle className="h-5 w-5 text-destructive" />
-                <h3 className="font-semibold text-foreground">Common mistakes</h3>
-              </div>
-              <ul className="space-y-2.5 pl-7">
-                {result.common_mistakes.map((mistake, i) => (
-                  <li
-                    key={i}
-                    className="relative text-sm leading-relaxed text-muted-foreground before:absolute before:left-[-1.125rem] before:top-[0.4rem] before:h-1.5 before:w-1.5 before:rounded-full before:bg-destructive/60"
-                  >
-                    {mistake}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Safety flag */}
-            {result.safety_flag && (
-              <div className="mb-8 rounded-xl border border-warning/20 bg-warning p-5">
-                <div className="flex items-start gap-3.5">
-                  <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-[oklch(0.65_0.15_70)]" />
-                  <div>
-                    <h3 className="mb-1 font-semibold text-warning-foreground">
-                      Safety flag
-                    </h3>
-                    <p className="text-sm leading-relaxed text-warning-foreground/90">
-                      {result.safety_flag}
-                    </p>
-                  </div>
+            <div className="mb-8 rounded-xl border border-warning/20 bg-warning p-5">
+              <div className="flex items-start gap-3.5">
+                <Heart className="mt-0.5 h-5 w-5 shrink-0 text-[oklch(0.65_0.15_70)]" />
+                <div className="flex-1">
+                  <h3 className="mb-3 font-semibold text-warning-foreground">
+                    How to not burn out
+                  </h3>
+                  <ul className="space-y-2 pl-4">
+                    {plan.avoid_burnout.map((item, i) => (
+                      <li
+                        key={i}
+                        className="relative text-sm leading-relaxed text-warning-foreground/90 before:absolute before:left-[-0.875rem] before:top-[0.4rem] before:h-1.5 before:w-1.5 before:rounded-full before:bg-warning-foreground/50"
+                      >
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               </div>
-            )}
-
-            {/* Ask a trainer if… */}
-            <div>
-              <div className="mb-3 flex items-center gap-2.5">
-                <HelpCircle className="h-5 w-5 text-muted-foreground" />
-                <h3 className="font-semibold text-foreground">Ask a trainer if…</h3>
-              </div>
-              <ul className="space-y-2.5 pl-7">
-                {result.ask_a_trainer_if.map((item, i) => (
-                  <li
-                    key={i}
-                    className="relative text-sm leading-relaxed text-muted-foreground before:absolute before:left-[-1.125rem] before:top-[0.4rem] before:h-1.5 before:w-1.5 before:rounded-full before:bg-muted-foreground/50"
-                  >
-                    {item}
-                  </li>
-                ))}
-              </ul>
             </div>
+
+            <Section
+              icon={<AlertTriangle className="h-5 w-5 text-destructive" />}
+              title="When to get help"
+              items={plan.when_to_get_help}
+              dotClass="bg-destructive/60"
+              noMargin
+            />
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function Question<T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+  disabled,
+  inline,
+}: {
+  label: string;
+  options: { value: T; label: string }[];
+  value: T | null;
+  onChange: (v: T) => void;
+  disabled?: boolean;
+  inline?: boolean;
+}) {
+  return (
+    <fieldset disabled={disabled} className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+      <legend className="px-1 text-sm font-semibold text-foreground">{label}</legend>
+      <div className={inline ? "mt-3 grid grid-cols-3 gap-2" : "mt-3 flex flex-col gap-2"}>
+        {options.map((opt) => {
+          const selected = value === opt.value;
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => onChange(opt.value)}
+              className={
+                "rounded-xl border px-4 py-3 text-left text-sm font-medium transition-colors " +
+                (selected
+                  ? "border-primary bg-primary/10 text-foreground"
+                  : "border-input bg-background text-muted-foreground hover:border-primary/50 hover:text-foreground")
+              }
+            >
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
+    </fieldset>
+  );
+}
+
+function Section({
+  icon,
+  title,
+  items,
+  dotClass,
+  noMargin,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  items: string[];
+  dotClass: string;
+  noMargin?: boolean;
+}) {
+  return (
+    <div className={noMargin ? "" : "mb-8"}>
+      <div className="mb-3 flex items-center gap-2.5">
+        {icon}
+        <h3 className="font-semibold text-foreground">{title}</h3>
+      </div>
+      <ul className="space-y-2.5 pl-7">
+        {items.map((item, i) => (
+          <li key={i} className="relative text-sm leading-relaxed text-muted-foreground">
+            <span
+              className={
+                "absolute left-[-1.125rem] top-[0.55rem] h-1.5 w-1.5 rounded-full " + dotClass
+              }
+            />
+            {item}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
