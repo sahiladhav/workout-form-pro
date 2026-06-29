@@ -13,32 +13,59 @@ const ResultSchema = z.object({
 
 export type ExerciseGuidance = z.infer<typeof ResultSchema>;
 
+export type CheckExerciseResponse =
+  | { result: ExerciseGuidance; error: null }
+  | { result: null; error: string };
+
 function extractJson(text: string): unknown {
-  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  const candidate = fenced ? fenced[1] : text;
+  const cleaned = text
+    .replace(/```json\s*/gi, "")
+    .replace(/```\s*/g, "")
+    .trim();
+  const candidate = cleaned || text;
   const start = candidate.indexOf("{");
   const end = candidate.lastIndexOf("}");
   if (start === -1 || end === -1) throw new Error("No JSON object in model response");
-  return JSON.parse(candidate.slice(start, end + 1));
+
+  const json = candidate
+    .slice(start, end + 1)
+    .replace(/,\s*}/g, "}")
+    .replace(/,\s*]/g, "]")
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "");
+
+  return JSON.parse(json);
 }
 
 export const checkExercise = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => InputSchema.parse(input))
-  .handler(async ({ data }): Promise<ExerciseGuidance> => {
+  .handler(async ({ data }): Promise<CheckExerciseResponse> => {
     const key = process.env.LOVABLE_API_KEY;
-    if (!key) throw new Error("Missing LOVABLE_API_KEY");
+    if (!key) {
+      return {
+        result: null,
+        error: "AI checking is not available right now. Please try again in a moment.",
+      };
+    }
 
-    const { createLovableAiGatewayProvider } = await import("./ai-gateway.server");
-    const gateway = createLovableAiGatewayProvider(key);
+    try {
+      const { createLovableAiGatewayProvider } = await import("./ai-gateway.server");
+      const gateway = createLovableAiGatewayProvider(key);
 
-    const { text } = await generateText({
-      model: gateway("google/gemini-3-flash-preview"),
-      system:
-        "You are a careful strength & conditioning coach giving beginner-focused guidance for gym beginners. Always reply with a single JSON object and nothing else — no prose, no markdown fences. The JSON must have exactly these keys: form_cues (array of 3-5 short strings), common_mistakes (array of 3-5 short strings), safety_flag (a single short warning string OR null), ask_a_trainer_if (array of 2-4 short strings). Keep each bullet under ~15 words. Set safety_flag to null for low-risk movements (e.g. bicep curl, seated calf raise); use a concise warning string when the exercise carries real beginner injury risk (e.g. heavy spinal loading, overhead barbell work, ballistic lifts).",
-      prompt: `Exercise: ${data.exercise}\n\nReturn the JSON object now.`,
-    });
+      const { text } = await generateText({
+        model: gateway("google/gemini-3-flash-preview"),
+        system:
+          "You are a careful strength & conditioning coach giving beginner-focused guidance for gym beginners. Always reply with a single JSON object and nothing else — no prose, no markdown fences. The JSON must have exactly these keys: form_cues (array of 3-5 short strings), common_mistakes (array of 3-5 short strings), safety_flag (a single short warning string OR null), ask_a_trainer_if (array of 2-4 short strings). Keep each bullet under ~15 words. Set safety_flag to null for low-risk movements (e.g. bicep curl, seated calf raise); use a concise warning string when the exercise carries real beginner injury risk (e.g. heavy spinal loading, overhead barbell work, ballistic lifts).",
+        prompt: `Exercise: ${data.exercise}\n\nReturn only valid JSON now.`,
+      });
 
-    const parsed = ResultSchema.parse(extractJson(text));
-    return parsed;
+      const parsed = ResultSchema.parse(extractJson(text));
+      return { result: parsed, error: null };
+    } catch (error) {
+      console.error("Exercise guidance generation failed", error);
+      return {
+        result: null,
+        error: "Sorry, we couldn't check that exercise right now. Please try again in a moment.",
+      };
+    }
   });
 
