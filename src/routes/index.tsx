@@ -36,30 +36,34 @@ function FormSafetyCheck() {
   const [exercise, setExercise] = useState("");
   const [result, setResult] = useState<ExerciseGuidance | null>(null);
   const [clarification, setClarification] = useState<string | null>(null);
+  const [clarificationAnswer, setClarificationAnswer] = useState("");
+  const [originalExercise, setOriginalExercise] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const name = exercise.trim();
-    if (!name || loading) return;
-
+  const runCheck = async (exerciseInput: string, clarificationInput?: string) => {
     setLoading(true);
     setError(null);
     setResult(null);
-    setClarification(null);
+    if (!clarificationInput) setClarification(null);
 
     try {
-      const data = await check({ data: { exercise: name } });
+      const data = await check({
+        data: { exercise: exerciseInput, clarification: clarificationInput },
+      });
       if (data.error) {
         setError(data.error);
         return;
       }
       if (data.clarification) {
         setClarification(data.clarification);
+        setClarificationAnswer("");
         return;
       }
-      if (data.result) setResult(data.result);
+      if (data.result) {
+        setResult(data.result);
+        setClarification(null);
+      }
     } catch (err) {
       console.error(err);
       setError(
@@ -68,6 +72,21 @@ function FormSafetyCheck() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = exercise.trim();
+    if (!name || loading) return;
+    setOriginalExercise(name);
+    await runCheck(name);
+  };
+
+  const handleClarificationSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const answer = clarificationAnswer.trim();
+    if (!answer || loading || !originalExercise) return;
+    await runCheck(originalExercise, answer);
   };
 
 
