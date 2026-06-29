@@ -1,14 +1,17 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import {
   Dumbbell,
   AlertTriangle,
   CheckCircle2,
   XCircle,
   HelpCircle,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { checkExercise, type ExerciseGuidance } from "@/lib/exercise.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -16,51 +19,47 @@ export const Route = createFileRoute("/")({
       { title: "Form & Safety Check" },
       {
         name: "description",
-        content:
-          "Get beginner form tips and safety guidance for any exercise.",
+        content: "Get beginner form tips and safety guidance for any exercise.",
       },
       { property: "og:title", content: "Form & Safety Check" },
       {
         property: "og:description",
-        content:
-          "Get beginner form tips and safety guidance for any exercise.",
+        content: "Get beginner form tips and safety guidance for any exercise.",
       },
     ],
   }),
   component: FormSafetyCheck,
 });
 
-const EXAMPLE_RESULT = {
-  exercise: "Barbell Deadlift",
-  formCues: [
-    "Keep the bar close to your shins throughout the lift",
-    "Maintain a neutral spine — imagine a broomstick along your back",
-    "Push the floor away with your legs, don't pull with your arms",
-    "Drive your hips forward to lock out at the top",
-  ],
-  commonMistakes: [
-    "Rounding the lower back under load",
-    "Letting the bar drift away from your body",
-    "Jerking the bar off the floor instead of building tension",
-  ],
-  safetyFlag: {
-    show: true,
-    text: "This exercise places significant load on your lower back. Start with very light weight and master the hip-hinge pattern before adding load.",
-  },
-  askTrainer: [
-    "You have a history of back injury or chronic pain",
-    "You're unsure about your depth or bar path",
-    "The movement feels wrong or causes any sharp pain",
-  ],
-};
-
 function FormSafetyCheck() {
+  const check = useServerFn(checkExercise);
   const [exercise, setExercise] = useState("");
-  const [showResults, setShowResults] = useState(false);
+  const [submittedName, setSubmittedName] = useState("");
+  const [result, setResult] = useState<ExerciseGuidance | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setShowResults(true);
+    const name = exercise.trim();
+    if (!name || loading) return;
+
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    setSubmittedName(name);
+
+    try {
+      const data = await check({ data: { exercise: name } });
+      setResult(data);
+    } catch (err) {
+      console.error(err);
+      setError(
+        "Sorry, we couldn't check that exercise right now. Please try again in a moment.",
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -86,21 +85,37 @@ function FormSafetyCheck() {
             placeholder="Enter an exercise (e.g. barbell deadlift)"
             value={exercise}
             onChange={(e) => setExercise(e.target.value)}
+            disabled={loading}
             className="h-14 rounded-xl border-input bg-card px-4 text-base shadow-sm transition-colors focus-visible:ring-primary"
           />
           <Button
             type="submit"
+            disabled={loading || !exercise.trim()}
             className="h-14 rounded-xl bg-primary text-base font-semibold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 active:scale-[0.98]"
           >
-            Check it
+            {loading ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Checking...
+              </>
+            ) : (
+              "Check it"
+            )}
           </Button>
         </form>
 
+        {/* Error */}
+        {error && !loading && (
+          <div className="mt-6 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+            {error}
+          </div>
+        )}
+
         {/* Result Card */}
-        {showResults && (
+        {result && !loading && (
           <div className="mt-8 rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8">
-            <h2 className="mb-8 text-xl font-bold text-card-foreground">
-              {EXAMPLE_RESULT.exercise}
+            <h2 className="mb-8 text-xl font-bold capitalize text-card-foreground">
+              {submittedName}
             </h2>
 
             {/* Form cues */}
@@ -110,7 +125,7 @@ function FormSafetyCheck() {
                 <h3 className="font-semibold text-foreground">Form cues</h3>
               </div>
               <ul className="space-y-2.5 pl-7">
-                {EXAMPLE_RESULT.formCues.map((cue, i) => (
+                {result.form_cues.map((cue, i) => (
                   <li
                     key={i}
                     className="relative text-sm leading-relaxed text-muted-foreground before:absolute before:left-[-1.125rem] before:top-[0.4rem] before:h-1.5 before:w-1.5 before:rounded-full before:bg-primary/60"
@@ -125,12 +140,10 @@ function FormSafetyCheck() {
             <div className="mb-8">
               <div className="mb-3 flex items-center gap-2.5">
                 <XCircle className="h-5 w-5 text-destructive" />
-                <h3 className="font-semibold text-foreground">
-                  Common mistakes
-                </h3>
+                <h3 className="font-semibold text-foreground">Common mistakes</h3>
               </div>
               <ul className="space-y-2.5 pl-7">
-                {EXAMPLE_RESULT.commonMistakes.map((mistake, i) => (
+                {result.common_mistakes.map((mistake, i) => (
                   <li
                     key={i}
                     className="relative text-sm leading-relaxed text-muted-foreground before:absolute before:left-[-1.125rem] before:top-[0.4rem] before:h-1.5 before:w-1.5 before:rounded-full before:bg-destructive/60"
@@ -142,7 +155,7 @@ function FormSafetyCheck() {
             </div>
 
             {/* Safety flag */}
-            {EXAMPLE_RESULT.safetyFlag.show && (
+            {result.safety_flag && (
               <div className="mb-8 rounded-xl border border-warning/20 bg-warning p-5">
                 <div className="flex items-start gap-3.5">
                   <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-[oklch(0.65_0.15_70)]" />
@@ -151,7 +164,7 @@ function FormSafetyCheck() {
                       Safety flag
                     </h3>
                     <p className="text-sm leading-relaxed text-warning-foreground/90">
-                      {EXAMPLE_RESULT.safetyFlag.text}
+                      {result.safety_flag}
                     </p>
                   </div>
                 </div>
@@ -162,12 +175,10 @@ function FormSafetyCheck() {
             <div>
               <div className="mb-3 flex items-center gap-2.5">
                 <HelpCircle className="h-5 w-5 text-muted-foreground" />
-                <h3 className="font-semibold text-foreground">
-                  Ask a trainer if…
-                </h3>
+                <h3 className="font-semibold text-foreground">Ask a trainer if…</h3>
               </div>
               <ul className="space-y-2.5 pl-7">
-                {EXAMPLE_RESULT.askTrainer.map((item, i) => (
+                {result.ask_a_trainer_if.map((item, i) => (
                   <li
                     key={i}
                     className="relative text-sm leading-relaxed text-muted-foreground before:absolute before:left-[-1.125rem] before:top-[0.4rem] before:h-1.5 before:w-1.5 before:rounded-full before:bg-muted-foreground/50"
