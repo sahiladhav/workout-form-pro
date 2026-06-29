@@ -120,12 +120,20 @@ function FormSafetyCheck() {
           </div>
         )}
 
+        {/* Clarification */}
+        {clarification && !loading && (
+          <div className="mt-6 rounded-xl border border-warning/30 bg-warning/40 p-4 text-sm text-warning-foreground">
+            {clarification}
+          </div>
+        )}
+
         {/* Result Card */}
         {result && !loading && (
           <div className="mt-8 rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8">
             <h2 className="mb-8 text-xl font-bold capitalize text-card-foreground">
-              {submittedName}
+              {result.exercise_name}
             </h2>
+
 
             {/* Form cues */}
             <div className="mb-8">
