@@ -140,9 +140,29 @@ function FormSafetyCheck() {
         )}
 
         {/* Clarification */}
-        {clarification && !loading && (
-          <div className="mt-6 rounded-xl border border-warning/30 bg-warning/40 p-4 text-sm text-warning-foreground">
-            {clarification}
+        {clarification && !loading && !result && (
+          <div className="mt-6 rounded-2xl border border-warning/30 bg-warning/40 p-5">
+            <p className="text-sm text-warning-foreground">{clarification}</p>
+            <form
+              onSubmit={handleClarificationSubmit}
+              className="mt-4 flex flex-col gap-2 sm:flex-row"
+            >
+              <Input
+                type="text"
+                placeholder="Add one more detail…"
+                value={clarificationAnswer}
+                onChange={(e) => setClarificationAnswer(e.target.value)}
+                autoFocus
+                className="h-12 flex-1 rounded-xl border-input bg-card px-4 text-base shadow-sm focus-visible:ring-primary"
+              />
+              <Button
+                type="submit"
+                disabled={!clarificationAnswer.trim()}
+                className="h-12 rounded-xl bg-primary px-6 text-base font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 active:scale-[0.98]"
+              >
+                Continue
+              </Button>
+            </form>
           </div>
         )}
 
