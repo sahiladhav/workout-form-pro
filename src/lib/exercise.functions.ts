@@ -22,13 +22,13 @@ export const checkExercise = createServerFn({ method: "POST" })
     const { createLovableAiGatewayProvider } = await import("./ai-gateway.server");
     const gateway = createLovableAiGatewayProvider(key);
 
-    const { experimental_output } = await generateText({
+    const { output } = await generateText({
       model: gateway("google/gemini-3-flash-preview"),
-      experimental_output: Output.object({ schema: ResultSchema }),
+      output: Output.object({ schema: ResultSchema }),
       system:
         "You are a careful strength & conditioning coach giving beginner-focused guidance. Keep each bullet short (under ~15 words). Set safety_flag to a single concise warning string only when the exercise carries real injury risk for beginners (e.g. heavy spinal loading, overhead barbell work, ballistic lifts). For low-risk movements (e.g. bicep curl, seated calf raise), set safety_flag to null.",
       prompt: `Exercise: ${data.exercise}\n\nReturn beginner form cues, common mistakes, a safety_flag (or null), and reasons to ask a trainer.`,
     });
 
-    return experimental_output;
+    return output;
   });
