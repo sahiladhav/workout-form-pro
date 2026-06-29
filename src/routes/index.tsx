@@ -34,8 +34,8 @@ export const Route = createFileRoute("/")({
 function FormSafetyCheck() {
   const check = useServerFn(checkExercise);
   const [exercise, setExercise] = useState("");
-  const [submittedName, setSubmittedName] = useState("");
   const [result, setResult] = useState<ExerciseGuidance | null>(null);
+  const [clarification, setClarification] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,15 +47,19 @@ function FormSafetyCheck() {
     setLoading(true);
     setError(null);
     setResult(null);
-    setSubmittedName(name);
+    setClarification(null);
 
     try {
       const data = await check({ data: { exercise: name } });
-      if (data.error || !data.result) {
-        setError(data.error ?? "Sorry, we couldn't check that exercise right now.");
+      if (data.error) {
+        setError(data.error);
         return;
       }
-      setResult(data.result);
+      if (data.clarification) {
+        setClarification(data.clarification);
+        return;
+      }
+      if (data.result) setResult(data.result);
     } catch (err) {
       console.error(err);
       setError(
@@ -65,6 +69,7 @@ function FormSafetyCheck() {
       setLoading(false);
     }
   };
+
 
   return (
     <div className="min-h-screen bg-background px-4 py-10 sm:py-16">
