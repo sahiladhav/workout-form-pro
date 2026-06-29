@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { generateText, Output } from "ai";
+import { generateText } from "ai";
 import { z } from "zod";
 
 const InputSchema = z.object({ exercise: z.string().min(1).max(120) });
@@ -13,6 +13,15 @@ const ResultSchema = z.object({
 
 export type ExerciseGuidance = z.infer<typeof ResultSchema>;
 
+function extractJson(text: string): unknown {
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const candidate = fenced ? fenced[1] : text;
+  const start = candidate.indexOf("{");
+  const end = candidate.lastIndexOf("}");
+  if (start === -1 || end === -1) throw new Error("No JSON object in model response");
+  return JSON.parse(candidate.slice(start, end + 1));
+}
+
 export const checkExercise = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => InputSchema.parse(input))
   .handler(async ({ data }): Promise<ExerciseGuidance> => {
@@ -22,13 +31,14 @@ export const checkExercise = createServerFn({ method: "POST" })
     const { createLovableAiGatewayProvider } = await import("./ai-gateway.server");
     const gateway = createLovableAiGatewayProvider(key);
 
-    const { output } = await generateText({
+    const { text } = await generateText({
       model: gateway("google/gemini-3-flash-preview"),
-      output: Output.object({ schema: ResultSchema }),
       system:
-        "You are a careful strength & conditioning coach giving beginner-focused guidance. Keep each bullet short (under ~15 words). Set safety_flag to a single concise warning string only when the exercise carries real injury risk for beginners (e.g. heavy spinal loading, overhead barbell work, ballistic lifts). For low-risk movements (e.g. bicep curl, seated calf raise), set safety_flag to null.",
-      prompt: `Exercise: ${data.exercise}\n\nReturn beginner form cues, common mistakes, a safety_flag (or null), and reasons to ask a trainer.`,
+        "You are a careful strength & conditioning coach giving beginner-focused guidance for gym beginners. Always reply with a single JSON object and nothing else — no prose, no markdown fences. The JSON must have exactly these keys: form_cues (array of 3-5 short strings), common_mistakes (array of 3-5 short strings), safety_flag (a single short warning string OR null), ask_a_trainer_if (array of 2-4 short strings). Keep each bullet under ~15 words. Set safety_flag to null for low-risk movements (e.g. bicep curl, seated calf raise); use a concise warning string when the exercise carries real beginner injury risk (e.g. heavy spinal loading, overhead barbell work, ballistic lifts).",
+      prompt: `Exercise: ${data.exercise}\n\nReturn the JSON object now.`,
     });
 
-    return output;
+    const parsed = ResultSchema.parse(extractJson(text));
+    return parsed;
   });
+
