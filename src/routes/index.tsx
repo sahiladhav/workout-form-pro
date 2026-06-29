@@ -91,7 +91,7 @@ function FormSafetyCheck() {
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           <Input
             type="text"
-            placeholder="Enter an exercise (e.g. barbell deadlift)"
+            placeholder="Enter an exercise — or describe it if you're not sure"
             value={exercise}
             onChange={(e) => setExercise(e.target.value)}
             disabled={loading}
