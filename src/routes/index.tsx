@@ -265,13 +265,12 @@ function Section({
       </div>
       <ul className="space-y-2.5 pl-7">
         {items.map((item, i) => (
-          <li
-            key={i}
-            className={
-              "relative text-sm leading-relaxed text-muted-foreground before:absolute before:left-[-1.125rem] before:top-[0.4rem] before:h-1.5 before:w-1.5 before:rounded-full before:" +
-              dotClass
-            }
-          >
+          <li key={i} className="relative text-sm leading-relaxed text-muted-foreground">
+            <span
+              className={
+                "absolute left-[-1.125rem] top-[0.55rem] h-1.5 w-1.5 rounded-full " + dotClass
+              }
+            />
             {item}
           </li>
         ))}
