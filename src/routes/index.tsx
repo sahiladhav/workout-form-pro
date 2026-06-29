@@ -51,7 +51,11 @@ function FormSafetyCheck() {
 
     try {
       const data = await check({ data: { exercise: name } });
-      setResult(data);
+      if (data.error || !data.result) {
+        setError(data.error ?? "Sorry, we couldn't check that exercise right now.");
+        return;
+      }
+      setResult(data.result);
     } catch (err) {
       console.error(err);
       setError(
