@@ -66,13 +66,17 @@ export const checkExercise = createServerFn({ method: "POST" })
         model: gateway("google/gemini-3-flash-preview"),
         system:
           "You are a careful strength & conditioning coach giving beginner-focused guidance. The user may type an exact exercise name OR a plain-English description of a movement or machine. First, identify the most likely exercise. Then reply with a single JSON object and nothing else — no prose, no markdown fences.\n\nIf you can confidently identify the exercise, respond with this shape:\n{\n  \"exercise_name\": string (the canonical exercise name in Title Case, e.g. \"Chest Press Machine\", \"Barbell Deadlift\"),\n  \"form_cues\": array of 3-5 short strings,\n  \"common_mistakes\": array of 3-5 short strings,\n  \"safety_flag\": a single short warning string OR null,\n  \"ask_a_trainer_if\": array of 2-4 short strings\n}\nKeep each bullet under ~15 words. Set safety_flag to null for low-risk movements (e.g. bicep curl, seated calf raise); use a concise warning string when there is real beginner injury risk (heavy spinal loading, overhead barbell work, ballistic lifts, etc.).\n\nIf the description is too vague or ambiguous to identify a specific exercise, instead respond with:\n{\n  \"needs_clarification\": true,\n  \"clarification_message\": a single friendly sentence asking for ONE more specific detail (e.g. which body part it works, whether you sit or stand, push or pull, machine or free-weight).\n}\nUse this clarification path only when truly unclear — if a reasonable best guess exists, return the full guidance instead.",
-        prompt: `User input: ${data.exercise}\n\nReturn only valid JSON now.`,
+        prompt: data.clarification
+          ? `Original user input: ${data.exercise}\nUser's clarification: ${data.clarification}\n\nUse both together to identify the exercise. Do NOT ask for further clarification — make your best reasonable guess and return the full guidance JSON. Return only valid JSON now.`
+          : `User input: ${data.exercise}\n\nReturn only valid JSON now.`,
       });
 
       const parsed = extractJson(text);
-      const clarify = ClarifySchema.safeParse(parsed);
-      if (clarify.success) {
-        return { result: null, clarification: clarify.data.clarification_message, error: null };
+      if (!data.clarification) {
+        const clarify = ClarifySchema.safeParse(parsed);
+        if (clarify.success) {
+          return { result: null, clarification: clarify.data.clarification_message, error: null };
+        }
       }
       const result = ResultSchema.parse(parsed);
       return { result, clarification: null, error: null };
