@@ -1,5 +1,4 @@
 import { createServerFn } from "@tanstack/react-start";
-import { generateText } from "ai";
 import { z } from "zod";
 
 const GoalSchema = z.enum(["strength_muscle", "lose_fat", "habit"]);
@@ -55,7 +54,7 @@ const LEVEL_LABEL: Record<z.infer<typeof LevelSchema>, string> = {
 export const buildPlan = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => InputSchema.parse(input))
   .handler(async ({ data }): Promise<BuildPlanResponse> => {
-    const key = process.env.LOVABLE_API_KEY;
+    const key = process.env.GEMINI_API_KEY;
     if (!key) {
       return {
         result: null,
@@ -64,15 +63,20 @@ export const buildPlan = createServerFn({ method: "POST" })
     }
 
     try {
-      const { createLovableAiGatewayProvider } = await import("./ai-gateway.server");
-      const gateway = createLovableAiGatewayProvider(key);
+      const { createGeminiClient } = await import("./ai-gateway.server");
+      const client = createGeminiClient(key);
 
-      const { text } = await generateText({
-        model: gateway("google/gemini-3-flash-preview"),
-        system:
-          "You are an encouraging, safety-first beginner gym coach. Generate a simple starting plan based on the user's goal, weekly availability, and starting level. Keep the tone warm, plain-English, and beginner-friendly. NEVER give specific calorie numbers, macros, or diet plans; if nutrition comes up at all, just suggest focusing on whole foods and protein and consulting a professional for specifics. Keep guidance general and safety-first.\n\nReply with ONLY a single JSON object, no prose, no markdown fences, with this exact shape:\n{\n  \"plan_title\": short friendly title for the plan (e.g. \"Your 3-day beginner strength starter\"),\n  \"first_four_weeks\": array of 3-6 short strings describing a gentle week-by-week ramp (mention weeks 1-4, easy volume, full-body),\n  \"typical_session\": array of 3-6 short strings listing movement patterns (squat, hinge, push, pull, carry, core) — NOT sets/reps/weights detail,\n  \"avoid_burnout\": array of 3-6 short strings on rest days, starting light, soreness being normal, consistency over intensity,\n  \"when_to_get_help\": array of 2-5 short strings reminding them to start light, listen to their body, see a doctor or trainer if they feel pain or have health conditions\n}\nKeep each bullet under ~20 words.",
-        prompt: `Goal: ${GOAL_LABEL[data.goal]}\nDays per week: ${data.days}\nStarting from: ${LEVEL_LABEL[data.level]}\n\nReturn only valid JSON now.`,
+      const response = await client.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: `Goal: ${GOAL_LABEL[data.goal]}\nDays per week: ${data.days}\nStarting from: ${LEVEL_LABEL[data.level]}\n\nReturn only valid JSON now.`,
+        config: {
+          systemInstruction:
+            "You are an encouraging, safety-first beginner gym coach. Generate a simple starting plan based on the user's goal, weekly availability, and starting level. Keep the tone warm, plain-English, and beginner-friendly. NEVER give specific calorie numbers, macros, or diet plans; if nutrition comes up at all, just suggest focusing on whole foods and protein and consulting a professional for specifics. Keep guidance general and safety-first.\n\nReply with ONLY a single JSON object, no prose, no markdown fences, with this exact shape:\n{\n  \"plan_title\": short friendly title for the plan (e.g. \"Your 3-day beginner strength starter\"),\n  \"first_four_weeks\": array of 3-6 short strings describing a gentle week-by-week ramp (mention weeks 1-4, easy volume, full-body),\n  \"typical_session\": array of 3-6 short strings listing movement patterns (squat, hinge, push, pull, carry, core) — NOT sets/reps/weights detail,\n  \"avoid_burnout\": array of 3-6 short strings on rest days, starting light, soreness being normal, consistency over intensity,\n  \"when_to_get_help\": array of 2-5 short strings reminding them to start light, listen to their body, see a doctor or trainer if they feel pain or have health conditions\n}\nKeep each bullet under ~20 words.",
+        },
       });
+
+      const text = response.text;
+      if (!text) throw new Error("Empty response from model");
 
       const parsed = extractJson(text);
       const result = ResultSchema.parse(parsed);
