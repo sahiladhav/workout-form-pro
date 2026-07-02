@@ -8,24 +8,29 @@ import {
   Heart,
   AlertTriangle,
   Loader2,
+  Sparkles,
+  ShieldCheck,
+  CheckCircle2,
+  ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { buildPlan, type StarterPlan, type PlanInput } from "@/lib/exercise.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Beginner Gym Starting Plan" },
+      { title: "AI Beginner Gym Plan Generator" },
       {
         name: "description",
         content:
-          "Answer 3 quick questions and get a simple, encouraging beginner gym plan.",
+          "Answer 3 quick questions and get a simple, encouraging, beginner-safe gym plan built by AI.",
       },
-      { property: "og:title", content: "Beginner Gym Starting Plan" },
+      { property: "og:title", content: "AI Beginner Gym Plan Generator" },
       {
         property: "og:description",
         content:
-          "Answer 3 quick questions and get a simple, encouraging beginner gym plan.",
+          "Answer 3 quick questions and get a simple, encouraging, beginner-safe gym plan built by AI.",
       },
     ],
   }),
@@ -83,75 +88,208 @@ function StartingPlan() {
   };
 
   return (
-    <div className="min-h-screen bg-background px-4 py-10 sm:py-16">
-      <div className="mx-auto max-w-lg">
-        {/* Header */}
-        <div className="mb-10 text-center">
-          <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
-            <Dumbbell className="h-7 w-7 text-primary" />
-          </div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-            Beginner Gym Starting Plan
-          </h1>
-          <p className="mt-3 text-base text-muted-foreground">
-            Three quick questions and we'll build you a simple, encouraging plan.
-          </p>
+    <div className="relative min-h-screen overflow-hidden bg-background">
+      {/* Animated background glow orbs */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="animate-blob absolute -left-40 -top-40 h-96 w-96 rounded-full bg-primary/30 blur-3xl" />
+        <div className="animate-blob animation-delay-2000 absolute -right-32 top-1/3 h-96 w-96 rounded-full bg-cyan-400/20 blur-3xl" />
+        <div className="animate-blob animation-delay-4000 absolute bottom-0 left-1/4 h-96 w-96 rounded-full bg-primary/20 blur-3xl" />
+      </div>
+
+      <div className="relative z-10 mx-auto grid max-w-6xl gap-12 px-4 py-10 sm:py-16 lg:grid-cols-2 lg:items-start lg:gap-16 lg:px-8 lg:py-24">
+        {/* Left: hero + form */}
+        <div className="flex flex-col gap-8">
+          <Hero />
+
+          <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+            <Question
+              label="What's your main goal?"
+              options={GOAL_OPTIONS}
+              value={goal}
+              onChange={setGoal}
+              disabled={loading}
+            />
+            <Question
+              label="How many days a week can you realistically train?"
+              options={DAY_OPTIONS}
+              value={days}
+              onChange={setDays}
+              disabled={loading}
+              inline
+            />
+            <Question
+              label="Where are you starting from?"
+              options={LEVEL_OPTIONS}
+              value={level}
+              onChange={setLevel}
+              disabled={loading}
+            />
+
+            <Button
+              type="submit"
+              disabled={loading || !ready}
+              className={cn(
+                "group h-14 rounded-xl bg-gradient-to-r from-primary to-cyan-400 text-base font-semibold text-primary-foreground shadow-[0_0_25px_-5px_var(--color-primary)] transition-all duration-300",
+                "hover:shadow-[0_0_35px_-2px_var(--color-primary)] hover:scale-[1.01] active:scale-[0.98]",
+                "disabled:opacity-50 disabled:shadow-none disabled:hover:scale-100",
+              )}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Building your plan...
+                </>
+              ) : (
+                <>
+                  Build my plan
+                  <ArrowRight className="h-5 w-5 transition-transform duration-300 group-hover:translate-x-1" />
+                </>
+              )}
+            </Button>
+          </form>
         </div>
 
-        {/* Questions */}
-        <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-          <Question
-            label="What's your main goal?"
-            options={GOAL_OPTIONS}
-            value={goal}
-            onChange={setGoal}
-            disabled={loading}
-          />
-          <Question
-            label="How many days a week can you realistically train?"
-            options={DAY_OPTIONS}
-            value={days}
-            onChange={setDays}
-            disabled={loading}
-            inline
-          />
-          <Question
-            label="Where are you starting from?"
-            options={LEVEL_OPTIONS}
-            value={level}
-            onChange={setLevel}
-            disabled={loading}
-          />
+        {/* Right: AI output panel */}
+        <div className="lg:sticky lg:top-16">
+          <OutputPanel plan={plan} loading={loading} error={error} />
+        </div>
+      </div>
+    </div>
+  );
+}
 
-          <Button
-            type="submit"
-            disabled={loading || !ready}
-            className="h-14 rounded-xl bg-primary text-base font-semibold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 active:scale-[0.98]"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="h-5 w-5 animate-spin" />
-                Building your plan...
-              </>
-            ) : (
-              "Build my plan"
-            )}
-          </Button>
-        </form>
+function Hero() {
+  return (
+    <div className="flex flex-col gap-5">
+      <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs font-medium text-muted-foreground backdrop-blur-xl">
+        <Sparkles className="h-3.5 w-3.5 text-primary" />
+        AI-powered starting plan
+      </div>
 
-        {/* Error */}
-        {error && !loading && (
-          <div className="mt-6 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-cyan-400 shadow-[0_0_25px_-5px_var(--color-primary)]">
+        <Dumbbell className="h-6 w-6 text-primary-foreground" />
+      </div>
+
+      <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
+        Your beginner gym plan,{" "}
+        <span className="bg-gradient-to-r from-primary to-cyan-400 bg-clip-text text-transparent">
+          built by AI
+        </span>
+      </h1>
+
+      <p className="max-w-md text-base leading-relaxed text-muted-foreground sm:text-lg">
+        Answer three quick questions and get a simple, encouraging plan — no guesswork,
+        no extreme advice, just a realistic way to start.
+      </p>
+
+      <TrustBadges />
+    </div>
+  );
+}
+
+function TrustBadges() {
+  const items = [
+    { icon: ShieldCheck, label: "Beginner-safe" },
+    { icon: CheckCircle2, label: "Realistic plan" },
+    { icon: Heart, label: "No extreme diet advice" },
+  ];
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {items.map(({ icon: Icon, label }) => (
+        <span
+          key={label}
+          className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs font-medium text-muted-foreground backdrop-blur-xl"
+        >
+          <Icon className="h-3.5 w-3.5 text-primary" />
+          {label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function Question<T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+  disabled,
+  inline,
+}: {
+  label: string;
+  options: { value: T; label: string }[];
+  value: T | null;
+  onChange: (v: T) => void;
+  disabled?: boolean;
+  inline?: boolean;
+}) {
+  return (
+    <fieldset
+      disabled={disabled}
+      className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 backdrop-blur-xl"
+    >
+      <legend className="px-1 text-sm font-semibold text-foreground/90">{label}</legend>
+      <div className={inline ? "mt-3 grid grid-cols-3 gap-2" : "mt-3 flex flex-col gap-2"}>
+        {options.map((opt) => {
+          const selected = value === opt.value;
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => onChange(opt.value)}
+              className={cn(
+                "flex items-center justify-between gap-2 rounded-xl border px-4 py-3 text-left text-sm font-medium transition-all duration-200",
+                selected
+                  ? "border-primary/60 bg-primary/15 text-foreground shadow-[0_0_20px_-6px_var(--color-primary)]"
+                  : "border-white/10 bg-white/[0.02] text-muted-foreground hover:border-primary/30 hover:bg-white/[0.05] hover:text-foreground",
+              )}
+            >
+              <span>{opt.label}</span>
+              {selected && <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />}
+            </button>
+          );
+        })}
+      </div>
+    </fieldset>
+  );
+}
+
+function OutputPanel({
+  plan,
+  loading,
+  error,
+}: {
+  plan: StarterPlan | null;
+  loading: boolean;
+  error: string | null;
+}) {
+  return (
+    <div className="relative rounded-3xl border border-white/10 bg-white/[0.03] p-1 shadow-[0_0_60px_-20px_var(--color-primary)] backdrop-blur-2xl">
+      <div className="rounded-[1.35rem] bg-gradient-to-b from-white/[0.04] to-transparent p-6 sm:p-8">
+        <div className="mb-6 flex items-center gap-2.5">
+          <Sparkles className="h-5 w-5 text-primary" />
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            Your AI coach
+          </h2>
+        </div>
+
+        {loading && <LoadingState />}
+
+        {!loading && error && (
+          <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
             {error}
           </div>
         )}
 
-        {/* Plan */}
-        {plan && !loading && (
-          <div className="mt-8 rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8">
-            <h2 className="mb-8 text-xl font-bold text-card-foreground">
-              {plan.plan_title}
-            </h2>
+        {!loading && !error && !plan && <EmptyState />}
+
+        {!loading && !error && plan && (
+          <div
+            key={plan.plan_title}
+            className="animate-in fade-in-0 slide-in-from-bottom-6 duration-700"
+          >
+            <h3 className="mb-8 text-xl font-bold text-foreground">{plan.plan_title}</h3>
 
             <Section
               icon={<CalendarDays className="h-5 w-5 text-primary" />}
@@ -167,9 +305,9 @@ function StartingPlan() {
               dotClass="bg-primary/60"
             />
 
-            <div className="mb-8 rounded-xl border border-warning/20 bg-warning p-5">
+            <div className="mb-8 rounded-xl border border-warning/30 bg-warning/40 p-5 backdrop-blur-xl">
               <div className="flex items-start gap-3.5">
-                <Heart className="mt-0.5 h-5 w-5 shrink-0 text-[oklch(0.65_0.15_70)]" />
+                <Heart className="mt-0.5 h-5 w-5 shrink-0 text-[oklch(0.75_0.15_70)]" />
                 <div className="flex-1">
                   <h3 className="mb-3 font-semibold text-warning-foreground">
                     How to not burn out
@@ -202,45 +340,38 @@ function StartingPlan() {
   );
 }
 
-function Question<T extends string>({
-  label,
-  options,
-  value,
-  onChange,
-  disabled,
-  inline,
-}: {
-  label: string;
-  options: { value: T; label: string }[];
-  value: T | null;
-  onChange: (v: T) => void;
-  disabled?: boolean;
-  inline?: boolean;
-}) {
+function EmptyState() {
   return (
-    <fieldset disabled={disabled} className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-      <legend className="px-1 text-sm font-semibold text-foreground">{label}</legend>
-      <div className={inline ? "mt-3 grid grid-cols-3 gap-2" : "mt-3 flex flex-col gap-2"}>
-        {options.map((opt) => {
-          const selected = value === opt.value;
-          return (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => onChange(opt.value)}
-              className={
-                "rounded-xl border px-4 py-3 text-left text-sm font-medium transition-colors " +
-                (selected
-                  ? "border-primary bg-primary/10 text-foreground"
-                  : "border-input bg-background text-muted-foreground hover:border-primary/50 hover:text-foreground")
-              }
-            >
-              {opt.label}
-            </button>
-          );
-        })}
+    <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-white/10 px-6 py-16 text-center">
+      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/[0.04]">
+        <Dumbbell className="h-6 w-6 text-muted-foreground" />
       </div>
-    </fieldset>
+      <div>
+        <p className="font-medium text-foreground">Your personalized plan will appear here</p>
+        <p className="mt-1.5 text-sm text-muted-foreground">
+          Answer the three questions and hit "Build my plan" to get started.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function LoadingState() {
+  return (
+    <div className="flex flex-col items-center justify-center gap-5 rounded-2xl border border-white/10 bg-white/[0.02] px-6 py-16 text-center">
+      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div>
+        <p className="font-medium text-foreground">Building your plan...</p>
+        <p className="mt-1.5 text-sm text-muted-foreground">
+          Our AI coach is putting together a safe, realistic starting point for you.
+        </p>
+      </div>
+      <div className="w-full max-w-xs space-y-2">
+        <div className="h-2 animate-pulse rounded-full bg-white/[0.06]" />
+        <div className="h-2 w-4/5 animate-pulse rounded-full bg-white/[0.06]" />
+        <div className="h-2 w-3/5 animate-pulse rounded-full bg-white/[0.06]" />
+      </div>
+    </div>
   );
 }
 
