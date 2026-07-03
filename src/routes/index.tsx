@@ -96,7 +96,7 @@ function StartingPlan() {
         <div className="animate-blob animation-delay-4000 absolute bottom-0 left-1/4 h-96 w-96 rounded-full bg-primary/20 blur-3xl" />
       </div>
 
-      <div className="relative z-10 mx-auto grid max-w-6xl gap-12 px-4 py-10 sm:py-16 lg:grid-cols-2 lg:items-start lg:gap-16 lg:px-8 lg:py-24">
+      <div className="relative z-10 mx-auto grid max-w-6xl gap-12 px-4 py-10 sm:py-16 lg:grid-cols-2 lg:items-stretch lg:gap-16 lg:px-8 lg:py-24">
         {/* Left: hero + form */}
         <div className="flex flex-col gap-8">
           <Hero />
@@ -150,7 +150,7 @@ function StartingPlan() {
         </div>
 
         {/* Right: AI output panel */}
-        <div className="lg:sticky lg:top-16">
+        <div className="flex">
           <OutputPanel plan={plan} loading={loading} error={error} />
         </div>
       </div>
@@ -265,9 +265,9 @@ function OutputPanel({
   error: string | null;
 }) {
   return (
-    <div className="relative rounded-3xl border border-white/10 bg-white/[0.03] p-1 shadow-[0_0_60px_-20px_var(--color-primary)] backdrop-blur-2xl">
-      <div className="rounded-[1.35rem] bg-gradient-to-b from-white/[0.04] to-transparent p-6 sm:p-8">
-        <div className="mb-6 flex items-center gap-2.5">
+    <div className="relative flex w-full flex-col rounded-3xl border border-white/10 bg-white/[0.03] p-1 shadow-[0_0_60px_-20px_var(--color-primary)] backdrop-blur-2xl">
+      <div className="flex w-full flex-1 flex-col rounded-[1.35rem] bg-gradient-to-b from-white/[0.04] to-transparent p-5 sm:p-6">
+        <div className="mb-4 flex items-center gap-2.5">
           <Sparkles className="h-5 w-5 text-primary" />
           <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
             Your AI coach
@@ -289,7 +289,7 @@ function OutputPanel({
             key={plan.plan_title}
             className="animate-in fade-in-0 slide-in-from-bottom-6 duration-700"
           >
-            <h3 className="mb-8 text-xl font-bold text-foreground">{plan.plan_title}</h3>
+            <h3 className="mb-4 text-xl font-bold text-foreground">{plan.plan_title}</h3>
 
             <Section
               icon={<CalendarDays className="h-5 w-5 text-primary" />}
@@ -305,18 +305,18 @@ function OutputPanel({
               dotClass="bg-primary/60"
             />
 
-            <div className="mb-8 rounded-xl border border-warning/30 bg-warning/40 p-5 backdrop-blur-xl">
+            <div className="mb-5 rounded-xl border border-warning/30 bg-warning/40 p-4 backdrop-blur-xl">
               <div className="flex items-start gap-3.5">
                 <Heart className="mt-0.5 h-5 w-5 shrink-0 text-[oklch(0.75_0.15_70)]" />
                 <div className="flex-1">
-                  <h3 className="mb-3 font-semibold text-warning-foreground">
+                  <h3 className="mb-2 font-semibold text-warning-foreground">
                     How to not burn out
                   </h3>
-                  <ul className="space-y-2 pl-4">
+                  <ul className="space-y-1.5 pl-4">
                     {plan.avoid_burnout.map((item, i) => (
                       <li
                         key={i}
-                        className="relative text-sm leading-relaxed text-warning-foreground/90 before:absolute before:left-[-0.875rem] before:top-[0.4rem] before:h-1.5 before:w-1.5 before:rounded-full before:bg-warning-foreground/50"
+                        className="relative text-sm leading-snug text-warning-foreground/90 before:absolute before:left-[-0.875rem] before:top-[0.4rem] before:h-1.5 before:w-1.5 before:rounded-full before:bg-warning-foreground/50"
                       >
                         {item}
                       </li>
@@ -389,14 +389,14 @@ function Section({
   noMargin?: boolean;
 }) {
   return (
-    <div className={noMargin ? "" : "mb-8"}>
-      <div className="mb-3 flex items-center gap-2.5">
+    <div className={noMargin ? "" : "mb-5"}>
+      <div className="mb-2 flex items-center gap-2.5">
         {icon}
         <h3 className="font-semibold text-foreground">{title}</h3>
       </div>
-      <ul className="space-y-2.5 pl-7">
+      <ul className="space-y-1.5 pl-7">
         {items.map((item, i) => (
-          <li key={i} className="relative text-sm leading-relaxed text-muted-foreground">
+          <li key={i} className="relative text-sm leading-snug text-muted-foreground">
             <span
               className={
                 "absolute left-[-1.125rem] top-[0.55rem] h-1.5 w-1.5 rounded-full " + dotClass
